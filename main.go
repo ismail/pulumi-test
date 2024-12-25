@@ -37,7 +37,14 @@ func main() {
 		sshUsername := cfg.Require("sshUsername")
 
 		installCmd, err := installCmd(distribution)
+		if err != nil {
+			return fmt.Errorf("failed to get install command: %w", err)
+		}
+
 		updateCmd, err := updateCmd(distribution)
+		if err != nil {
+			return fmt.Errorf("failed to get update command: %w", err)
+		}
 
 		key, err := os.ReadFile(os.ExpandEnv("$HOME/.orbstack/ssh/id_ed25519"))
 		if err != nil {
