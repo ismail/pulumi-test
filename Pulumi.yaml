@@ -5,3 +5,9 @@ config:
   pulumi:tags:
     value:
       pulumi:template: go
+
+  fedora:distribution: fedora
+  fedora:sshUsername: fedora
+
+  ubuntu:sshUsername: ubuntu
+  ubuntu:distribution: ubuntu
