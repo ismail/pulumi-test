@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -123,13 +124,10 @@ func main() {
 		}
 
 		extraPackages := extraPackagesForDistro(distribution)
-
-		// These commands need to be run in order
-		base_commands := []struct {
+		setup_commands := []struct {
 			name string
 			cmd  string
 		}{
-			{"update-system", updateCmd},
 			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
 			{"install-cargo", "curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
 			// zsh is not setup yet, we need full path to cargo
@@ -141,7 +139,7 @@ func main() {
 		}
 
 		// These run independently
-		setup_commands := []struct {
+		extra_commands := []struct {
 			name string
 			cmd  string
 		}{
@@ -150,12 +148,24 @@ func main() {
 			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
 		}
 
-		if err := runOrderedCommands(ctx, base_commands, connection); err != nil {
+		// We always update the system
+		_, err = remote.NewCommand(ctx, "update-system", &remote.CommandArgs{
+			Connection: connection,
+			Create:     pulumi.String(updateCmd),
+			Triggers:   pulumi.Array{pulumi.String(time.Now().Format(time.RFC3339))},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update the system: %w", err)
+		}
+
+		// Setup the base system
+		if err := runOrderedCommands(ctx, setup_commands, connection); err != nil {
 			fmt.Printf("Failed to run base commands: %v\n", err)
 			return err
 		}
 
-		if err := runIndependentCommands(ctx, setup_commands, connection); err != nil {
+		// The rest
+		if err := runIndependentCommands(ctx, extra_commands, connection); err != nil {
 			fmt.Printf("Failed to run setup commands: %v\n", err)
 			return err
 		}
