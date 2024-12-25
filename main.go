@@ -10,7 +10,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
-const commonPackages = "curl less git man-db zsh"
+const commonPackages = "bpftrace cmake curl gcc gdb less git man-db pkgconf sysstat zsh"
+const cargoPackages = "adulting bat csvlens difftastic git-delta  hexyl hyperfine xsv"
 
 func installCmd(distribution string) (string, error) {
 	switch distribution {
@@ -37,7 +38,9 @@ func updateCmd(distribution string) (string, error) {
 func extraPackagesForDistro(distribution string) []string {
 	switch distribution {
 	case "fedora":
-		return []string{"fedora-packager", "fedora-review"}
+		return []string{"fedora-packager", "fedora-review", "gcc-c++", "ninja", "perf"}
+	case "ubuntu", "debian":
+		return []string{"g++", "linux-tools-virtual", "ninja-build"}
 	default:
 		return nil
 	}
@@ -80,6 +83,8 @@ func main() {
 		}{
 			{"update-system", updateCmd},
 			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
+			{"install-cargo", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
+			{"install-cargo-packages", fmt.Sprintf("cargo install %s", cargoPackages)},
 			{"use-zsh", "sudo chsh -s /bin/zsh ismail"},
 		}
 
@@ -88,12 +93,11 @@ func main() {
 			name string
 			cmd  string
 		}{
-			{"install-cargo", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
+			{"install-starship", "curl -sS https://starship.rs/install.sh | sudo sh -s -- -y"},
 			{"setup-config", "rm -rf ~/github/config && git clone https://github.com/ismail/config.git ~/github/config && ~/github/config/setup.sh"},
 			{"setup-hacks", "rm -rf ~/github/hacks && git clone https://github.com/ismail/hacks.git ~/github/hacks && ~/github/hacks/setup.sh"},
-			{"install-starship", "curl -sS https://starship.rs/install.sh | sudo sh -s -- -y"},
-			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
 			{"set-zlogin", "echo 'path+=(~/.cargo/bin $path)\n\neval \"$(starship init zsh)\"' > ~/.zlogin"},
+			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
 		}
 
 		// Run base commands in order
