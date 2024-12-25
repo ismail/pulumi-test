@@ -17,9 +17,9 @@ const cargoPackages = "adulting bat csvlens difftastic git-delta  hexyl hyperfin
 func installCmd(distribution string) (string, error) {
 	switch distribution {
 	case "fedora":
-		return "dnf install -y", nil
+		return "sudo dnf install -y", nil
 	case "ubuntu", "debian":
-		return "apt-get install -y", nil
+		return "sudo apt-get install -y", nil
 	default:
 		return "", fmt.Errorf("unsupported distribution: %s", distribution)
 	}
@@ -128,7 +128,7 @@ func main() {
 			name string
 			cmd  string
 		}{
-			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
+			{"install-packages", fmt.Sprintf("%s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
 			{"install-cargo", "curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
 			// zsh is not setup yet, we need full path to cargo
 			{"install-cargo-packages", fmt.Sprintf("~/.cargo/bin/cargo install %s", cargoPackages)},
