@@ -11,7 +11,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
-const commonPackages = "bpftrace clang cmake curl gcc gdb git less llvm man-db pkgconf sysstat zsh"
+const commonPackages = "bpftrace clang cmake curl gcc gdb git less llvm man-db mold pkgconf sysstat zsh"
 const cargoPackages = "adulting bat csvlens difftastic git-delta  hexyl hyperfine xsv"
 
 func installCmd(distribution string) (string, error) {
@@ -66,25 +66,20 @@ func runIndependentCommands(ctx *pulumi.Context, commands []struct {
 	return nil
 }
 
-func runOrderedCommands(ctx *pulumi.Context, commands []struct {
+func runOrderedCommands(ctx *pulumi.Context, update_cmd *remote.Command, commands []struct {
 	name string
 	cmd  string
 }, connection remote.ConnectionArgs) error {
-	var lastResource pulumi.Resource
+	var lastResource pulumi.Resource = update_cmd
 
 	for _, c := range commands {
-
-		var opts []pulumi.ResourceOption
-		if lastResource != nil {
-			opts = append(opts, pulumi.DependsOn([]pulumi.Resource{lastResource}))
-		}
 
 		ctx.Log.Info(fmt.Sprintf("%s: '%s'", c.name, c.cmd), nil)
 		r, err := remote.NewCommand(ctx, c.name, &remote.CommandArgs{
 			Connection: connection,
 			Create:     pulumi.String(c.cmd),
 			Triggers:   pulumi.Array{pulumi.String(c.cmd)},
-		}, opts...)
+		}, pulumi.DependsOn([]pulumi.Resource{lastResource}))
 
 		if err != nil {
 			return fmt.Errorf("failed to run command '%s': %w", c.cmd, err)
@@ -149,17 +144,18 @@ func main() {
 		}
 
 		// We always update the system
-		_, err = remote.NewCommand(ctx, "update-system", &remote.CommandArgs{
+		base_cmd, err := remote.NewCommand(ctx, "update-system", &remote.CommandArgs{
 			Connection: connection,
 			Create:     pulumi.String(updateCmd),
 			Triggers:   pulumi.Array{pulumi.String(time.Now().Format(time.RFC3339))},
 		})
+
 		if err != nil {
 			return fmt.Errorf("failed to update the system: %w", err)
 		}
 
 		// Setup the base system
-		if err := runOrderedCommands(ctx, setup_commands, connection); err != nil {
+		if err := runOrderedCommands(ctx, base_cmd, setup_commands, connection); err != nil {
 			ctx.Log.Error(fmt.Sprintf("Failed to run base commands: %v", err), nil)
 			return err
 		}
