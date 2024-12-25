@@ -10,7 +10,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
-const commonPackages = "git zsh"
+const commonPackages = "curl less git man-db zsh"
 
 func installCmd(distribution string) (string, error) {
 	switch distribution {
@@ -79,6 +79,7 @@ func main() {
 		}{
 			{"update-system", updateCmd},
 			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
+			{"install-cargo", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
 			{"setup-home", "rm -rf $HOME/github && mkdir $HOME/github"},
 			{"setup-config", "git clone https://github.com/ismail/config.git $HOME/github/config"},
 			{"setup-hacks", "git clone https://github.com/ismail/hacks.git $HOME/github/hacks"},
@@ -86,7 +87,7 @@ func main() {
 			{"use-zsh", "sudo chsh -s /bin/zsh ismail"},
 			{"install-starship", "curl -sS https://starship.rs/install.sh | sudo sh -s -- -y"},
 			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
-			{"use-starship", "echo 'eval \"$(starship init zsh)\"' > ~/.zshrc-local"},
+			{"set-zlogin", "echo 'path+=(~/.cargo/bin $path)\n\neval \"$(starship init zsh)\"' > ~/.zlogin"},
 		}
 
 		var lastResource pulumi.Resource
