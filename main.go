@@ -10,7 +10,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
-const commonPackages = "bpftrace cmake curl gcc gdb less git man-db pkgconf sysstat zsh"
+const commonPackages = "bpftrace clang cmake curl gcc gdb git less llvm man-db pkgconf sysstat zsh"
 const cargoPackages = "adulting bat csvlens difftastic git-delta  hexyl hyperfine xsv"
 
 func installCmd(distribution string) (string, error) {
