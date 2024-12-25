@@ -83,7 +83,7 @@ func main() {
 		}{
 			{"update-system", updateCmd},
 			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
-			{"install-cargo", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
+			{"install-cargo", "curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
 			{"install-cargo-packages", fmt.Sprintf("cargo install %s", cargoPackages)},
 			{"use-zsh", "sudo chsh -s /bin/zsh ismail"},
 		}
@@ -94,9 +94,10 @@ func main() {
 			cmd  string
 		}{
 			{"install-starship", "curl -sS https://starship.rs/install.sh | sudo sh -s -- -y"},
+			{"install-uv", "curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh"},
 			{"setup-config", "rm -rf ~/github/config && git clone https://github.com/ismail/config.git ~/github/config && ~/github/config/setup.sh"},
 			{"setup-hacks", "rm -rf ~/github/hacks && git clone https://github.com/ismail/hacks.git ~/github/hacks && ~/github/hacks/setup.sh"},
-			{"set-zlogin", "echo 'path+=(~/.cargo/bin $path)\n\neval \"$(starship init zsh)\"' > ~/.zlogin"},
+			{"set-zlogin", "echo 'path+=(~/.local/bin ~/.cargo/bin $path)\n\neval \"$(starship init zsh)\"' > ~/.zlogin"},
 			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
 		}
 
