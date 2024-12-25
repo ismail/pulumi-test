@@ -30,7 +30,7 @@ func updateCmd(distribution string) (string, error) {
 	case "fedora":
 		return "sudo dnf update -y", nil
 	case "ubuntu", "debian":
-		return "sudo bash -c \"apt-get update && apt-get dist-upgrade -y\"", nil
+		return "sudo apt-get update && sudo apt-get dist-upgrade -y", nil
 	default:
 		return "", fmt.Errorf("unsupported distribution: %s", distribution)
 	}
@@ -43,7 +43,7 @@ func extraPackagesForDistro(distribution string) []string {
 	case "ubuntu", "debian":
 		return []string{"g++", "linux-tools-virtual", "ninja-build"}
 	default:
-		return nil
+		return []string{}
 	}
 }
 
@@ -52,7 +52,7 @@ func runIndependentCommands(ctx *pulumi.Context, commands []struct {
 	cmd  string
 }, connection remote.ConnectionArgs) error {
 	for _, c := range commands {
-		ctx.Log.Info(fmt.Sprintf("Running command: '%s'", c.cmd), nil)
+		ctx.Log.Info(fmt.Sprintf("%s: '%s'", c.name, c.cmd), nil)
 
 		_, err := remote.NewCommand(ctx, c.name, &remote.CommandArgs{
 			Connection: connection,
@@ -79,7 +79,7 @@ func runOrderedCommands(ctx *pulumi.Context, commands []struct {
 			opts = append(opts, pulumi.DependsOn([]pulumi.Resource{lastResource}))
 		}
 
-		ctx.Log.Info(fmt.Sprintf("Running command: '%s'", c.cmd), nil)
+		ctx.Log.Info(fmt.Sprintf("%s: '%s'", c.name, c.cmd), nil)
 		r, err := remote.NewCommand(ctx, c.name, &remote.CommandArgs{
 			Connection: connection,
 			Create:     pulumi.String(c.cmd),
@@ -160,13 +160,13 @@ func main() {
 
 		// Setup the base system
 		if err := runOrderedCommands(ctx, setup_commands, connection); err != nil {
-			fmt.Printf("Failed to run base commands: %v\n", err)
+			ctx.Log.Error(fmt.Sprintf("Failed to run base commands: %v", err), nil)
 			return err
 		}
 
 		// The rest
 		if err := runIndependentCommands(ctx, extra_commands, connection); err != nil {
-			fmt.Printf("Failed to run setup commands: %v\n", err)
+			ctx.Log.Error(fmt.Sprintf("Failed to run setup commands: %v", err), nil)
 			return err
 		}
 
