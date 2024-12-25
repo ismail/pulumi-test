@@ -12,7 +12,7 @@ import (
 )
 
 const commonPackages = "bpftrace clang cmake curl gcc gdb git less llvm man-db mold pkgconf sysstat zsh"
-const cargoPackages = "adulting bat csvlens difftastic git-delta  hexyl hyperfine xsv"
+const cargoPackages = "bat csvlens hexyl hyperfine xsv"
 
 func installCmd(distribution string) (string, error) {
 	switch distribution {
@@ -124,7 +124,7 @@ func main() {
 			cmd  string
 		}{
 			{"install-packages", fmt.Sprintf("%s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
-			{"install-cargo", "curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
+			{"install-cargo", "rm -rf ~/.cargo ~/.rustup && curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
 			// zsh is not setup yet, we need full path to cargo
 			{"install-cargo-packages", fmt.Sprintf("~/.cargo/bin/cargo install %s", cargoPackages)},
 			{"setup-config", "rm -rf ~/github/config && git clone https://github.com/ismail/config.git ~/github/config && ~/github/config/setup.sh"},
