@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
+
+const commonPackages = "git zsh"
 
 func installCmd(distribution string) (string, error) {
 	switch distribution {
@@ -30,21 +33,21 @@ func updateCmd(distribution string) (string, error) {
 		return "", fmt.Errorf("unsupported distribution: %s", distribution)
 	}
 }
+
+func extraPackagesForDistro(distribution string) []string {
+	switch distribution {
+	case "fedora":
+		return []string{"fedora-packager", "fedora-review"}
+	default:
+		return nil
+	}
+}
+
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		cfg := config.New(ctx, ctx.Stack())
 		distribution := cfg.Require("distribution")
 		sshUsername := cfg.Require("sshUsername")
-
-		installCmd, err := installCmd(distribution)
-		if err != nil {
-			return fmt.Errorf("failed to get install command: %w", err)
-		}
-
-		updateCmd, err := updateCmd(distribution)
-		if err != nil {
-			return fmt.Errorf("failed to get update command: %w", err)
-		}
 
 		key, err := os.ReadFile(os.ExpandEnv("$HOME/.orbstack/ssh/id_ed25519"))
 		if err != nil {
@@ -58,12 +61,24 @@ func main() {
 			PrivateKey: pulumi.String(string(key)),
 		}
 
+		installCmd, err := installCmd(distribution)
+		if err != nil {
+			return fmt.Errorf("failed to get install command: %w", err)
+		}
+
+		updateCmd, err := updateCmd(distribution)
+		if err != nil {
+			return fmt.Errorf("failed to get update command: %w", err)
+		}
+
+		extraPackages := extraPackagesForDistro(distribution)
+
 		commands := []struct {
 			name string
 			cmd  string
 		}{
 			{"update-system", updateCmd},
-			{"install-packages", fmt.Sprintf("sudo %s git zsh", installCmd)},
+			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
 			{"setup-home", "rm -rf $HOME/github && mkdir $HOME/github"},
 			{"setup-config", "git clone https://github.com/ismail/config.git $HOME/github/config"},
 			{"setup-hacks", "git clone https://github.com/ismail/hacks.git $HOME/github/hacks"},
