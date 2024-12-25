@@ -46,6 +46,54 @@ func extraPackagesForDistro(distribution string) []string {
 	}
 }
 
+func runIndependentCommands(ctx *pulumi.Context, commands []struct {
+	name string
+	cmd  string
+}, connection remote.ConnectionArgs) error {
+	for _, c := range commands {
+		ctx.Log.Info(fmt.Sprintf("Running command: '%s'", c.cmd), nil)
+
+		_, err := remote.NewCommand(ctx, c.name, &remote.CommandArgs{
+			Connection: connection,
+			Create:     pulumi.String(c.cmd),
+			Triggers:   pulumi.Array{pulumi.String(c.cmd)},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to run command '%s': %w", c.cmd, err)
+		}
+	}
+	return nil
+}
+
+func runOrderedCommands(ctx *pulumi.Context, commands []struct {
+	name string
+	cmd  string
+}, connection remote.ConnectionArgs) error {
+	var lastResource pulumi.Resource
+
+	for _, c := range commands {
+
+		var opts []pulumi.ResourceOption
+		if lastResource != nil {
+			opts = append(opts, pulumi.DependsOn([]pulumi.Resource{lastResource}))
+		}
+
+		ctx.Log.Info(fmt.Sprintf("Running command: '%s'", c.cmd), nil)
+		r, err := remote.NewCommand(ctx, c.name, &remote.CommandArgs{
+			Connection: connection,
+			Create:     pulumi.String(c.cmd),
+			Triggers:   pulumi.Array{pulumi.String(c.cmd)},
+		}, opts...)
+
+		if err != nil {
+			return fmt.Errorf("failed to run command '%s': %w", c.cmd, err)
+		}
+
+		lastResource = r
+	}
+	return nil
+}
+
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		cfg := config.New(ctx, ctx.Stack())
@@ -84,59 +132,32 @@ func main() {
 			{"update-system", updateCmd},
 			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
 			{"install-cargo", "curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
-			{"install-cargo-packages", fmt.Sprintf("cargo install %s", cargoPackages)},
+			// zsh is not setup yet, we need full path to cargo
+			{"install-cargo-packages", fmt.Sprintf("~/.cargo/bin/cargo install %s", cargoPackages)},
+			{"setup-config", "rm -rf ~/github/config && git clone https://github.com/ismail/config.git ~/github/config && ~/github/config/setup.sh"},
+			{"setup-hacks", "rm -rf ~/github/hacks && git clone https://github.com/ismail/hacks.git ~/github/hacks && ~/github/hacks/setup.sh"},
+			{"set-zlogin", "echo 'path+=(~/.local/bin ~/.cargo/bin $path)\n\neval \"$(starship init zsh)\"' > ~/.zlogin"},
 			{"use-zsh", "sudo chsh -s /bin/zsh ismail"},
 		}
 
 		// These run independently
-		commands := []struct {
+		setup_commands := []struct {
 			name string
 			cmd  string
 		}{
 			{"install-starship", "curl -sS https://starship.rs/install.sh | sudo sh -s -- -y"},
 			{"install-uv", "curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh"},
-			{"setup-config", "rm -rf ~/github/config && git clone https://github.com/ismail/config.git ~/github/config && ~/github/config/setup.sh"},
-			{"setup-hacks", "rm -rf ~/github/hacks && git clone https://github.com/ismail/hacks.git ~/github/hacks && ~/github/hacks/setup.sh"},
-			{"set-zlogin", "echo 'path+=(~/.local/bin ~/.cargo/bin $path)\n\neval \"$(starship init zsh)\"' > ~/.zlogin"},
 			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
 		}
 
-		// Run base commands in order
-		var lastResource pulumi.Resource
-
-		for _, c := range base_commands {
-			ctx.Log.Info(fmt.Sprintf("Running command: '%s'", c.cmd), nil)
-
-			var opts []pulumi.ResourceOption
-			if lastResource != nil {
-				opts = append(opts, pulumi.DependsOn([]pulumi.Resource{lastResource}))
-			}
-
-			r, err := remote.NewCommand(ctx, c.name, &remote.CommandArgs{
-				Connection: connection,
-				Create:     pulumi.String(c.cmd),
-				Triggers:   pulumi.Array{pulumi.String(c.cmd)},
-			}, opts...)
-
-			if err != nil {
-				fmt.Printf("failed to run command '%s': %v", c.cmd, err)
-				return nil
-			}
-			lastResource = r
+		if err := runOrderedCommands(ctx, base_commands, connection); err != nil {
+			fmt.Printf("Failed to run base commands: %v\n", err)
+			return err
 		}
 
-		// Run independent commands
-		for _, c := range commands {
-			ctx.Log.Info(fmt.Sprintf("Running command: '%s'", c.cmd), nil)
-
-			_, err := remote.NewCommand(ctx, c.name, &remote.CommandArgs{
-				Connection: connection,
-				Create:     pulumi.String(c.cmd),
-				Triggers:   pulumi.Array{pulumi.String(c.cmd)},
-			})
-			if err != nil {
-				return fmt.Errorf("failed to run command %s: %w", c.name, err)
-			}
+		if err := runIndependentCommands(ctx, setup_commands, connection); err != nil {
+			fmt.Printf("Failed to run setup commands: %v\n", err)
+			return err
 		}
 
 		ctx.Log.Info(fmt.Sprintf("%s setup complete.", distribution), nil)
