@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -124,12 +123,15 @@ func main() {
 		}
 
 		extraPackages := extraPackagesForDistro(distribution)
+
+		// These commands need to be run in order
 		setup_commands := []struct {
 			name string
 			cmd  string
 		}{
-			{"install-packages", fmt.Sprintf("%s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
-			{"install-cargo", "rm -rf ~/.cargo ~/.rustup && curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
+			{"update-system", updateCmd},
+			{"install-packages", fmt.Sprintf("sudo %s %s %s", installCmd, commonPackages, strings.Join(extraPackages, " "))},
+			{"install-cargo", "curl -LsSf https://sh.rustup.rs | sh -s -- -y --no-modify-path"},
 			// zsh is not setup yet, we need full path to cargo
 			{"install-cargo-packages", fmt.Sprintf("~/.cargo/bin/cargo install %s", cargoPackages)},
 			{"setup-config", "rm -rf ~/github/config && git clone https://github.com/ismail/config.git ~/github/config && ~/github/config/setup.sh"},
@@ -146,16 +148,6 @@ func main() {
 			{"install-starship", "curl -sS https://starship.rs/install.sh | sudo sh -s -- -y"},
 			{"install-uv", "curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh"},
 			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
-		}
-
-		// We always update the system
-		_, err = remote.NewCommand(ctx, "update-system", &remote.CommandArgs{
-			Connection: connection,
-			Create:     pulumi.String(updateCmd),
-			Triggers:   pulumi.Array{pulumi.String(time.Now().Format(time.RFC3339))},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update the system: %w", err)
 		}
 
 		// Setup the base system
