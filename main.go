@@ -147,7 +147,6 @@ func main() {
 		}{
 			{"install-starship", "curl -sS https://starship.rs/install.sh | sudo sh -s -- -y"},
 			{"install-uv", "curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh"},
-			{"starship-disable-container", "mkdir -p ~/.config && echo \"[container]\ndisabled = true\" > ~/.config/starship.toml"},
 		}
 
 		// Setup the base system
